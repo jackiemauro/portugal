@@ -1,6 +1,8 @@
 require(MASS)
 require(maxLik)
 
+
+# make a simulated dataset that will do what we want
 x1 = rnorm(1000,8,2)
 x2 = rnorm(1000,2,1)
 
@@ -30,6 +32,8 @@ y1 = exp(lny)*s
 
 I = y1==0
 
+
+# define the function that should be maximized
 loglik <-function(params){
   # indicator for above the cutoff tau=0
   I = y1==0                       
@@ -51,6 +55,8 @@ loglik <-function(params){
   f1 = I*log( 1 - pnorm(m) ) + 
     (1-I)*log(temp)
   f1[is.na(f1)] <- 0
+  f1[is.nan(f1)] <- 0
+  f1[is.infinite(f1)] <- 0
   
   # log likelihood fn for iv lognormal hurdle
   ll = f1 + f2
@@ -84,6 +90,9 @@ View(cbind(names,coef(reslg2),harder))
 test = pnorm(mtest)*(( 1/( 2*pi*(var(u)-cov(u,v)^2/var(v) ) ) )*
                        exp(-( 1/(2*(var(u) - cov(u,v)^2/var(v))) ) *
                              (log(y1) - y1*beta1 + x1*beta2 +alpha1*(y2 - x1*pi1 - x2*pi2))^2))
+nI = I==FALSE
+l.test = log(test)
+l.test = (1-I)*l.test
+l.test[is.infinite(l.test)] <- 0
+l.test[is.nan(l.test)] <- 0
 
-l.test = (1-I)*log(test)
-l.test[is.na(l.test)]<-0
