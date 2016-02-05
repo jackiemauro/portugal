@@ -1,0 +1,91 @@
+#################################################################################
+# 
+# file should simulate a dataset from a lognormal hurdle model
+# then it should run an mle procedure to recover the parameters of the model
+# use in conjunction with lgIV likelihood file
+# still has issues if tau's too high - misestimates betas
+#
+#
+#################################################################################
+
+require(stats4)
+require(MASS)
+require(maxLik)
+require(optimx)
+library(testthat)
+
+rt <- getwd()
+source("lgIV likelihood.R")
+
+##################### simulate the dataset ##################
+
+# error terms
+sig_u = .5; sig_v = .7
+tau1 = .2; tau0 = .5
+sig = matrix( c(sig_u^2, 0,    tau1,
+                0,     1,    tau0,
+                tau1,  tau0, sig_v^2),
+              ncol = 3, byrow = T)
+uev = mvrnorm(n=n, mu = c(0,0,0), Sigma = sig)
+u = uev[,1]; eta = uev[,2]; v = uev[,3]
+
+# exogenous variables
+n = 10000
+x1 = rnorm(n, .5, sqrt(.02)); z = rnorm(n, .2, sqrt(.02))
+Z = matrix(c(x1, z), ncol = 2, byrow = F)
+
+# endogenous variable
+Pi = c(-.2, .7)
+x2 = Pi%*%t(Z) + v
+X = matrix(c(x1,x2), ncol = 2, byrow = F)
+
+# second stage regressions
+Gamma = c(2, -.8); Beta = c(.02, .05)
+y0s = Gamma%*%t(X) + eta
+y0 = ifelse(y0s>0,1,0)
+
+lny = Beta%*%t(X) + u
+y1 = c(exp(lny)*y0)
+
+# check look
+hist(y1)
+hist(log(y1[y1>0]))
+
+############################# test the function ########################
+
+# get starting values
+x2.v <- c(x2)
+t1 <- lm(x2.v ~ x1 + z)
+I = ifelse(y1>0,1,0)
+t2 <- glm(I~x1+x2.v, family = binomial(link = "probit"))
+t3 <- lm(log(y1[y1>0])~x1[y1>0]+x2.v[y1>0])
+
+obs = list(sig_v=sd(t1$res), sig_u=sd(t3$res), 
+       tau1=0,tau0=0,beta1=t3$coef[[2]], beta2=t3$coef[[3]],
+       gamma1=t2$coef[[2]],gamma2=t2$coef[[3]],
+       pi1=t1$coef[[2]],pi2=t1$coef[[3]])
+
+
+# use true values
+true = list(sig_v = sig_v, sig_u = sig_u, tau1= tau1, tau0=tau0,
+           beta1 = Beta[1], beta2 = Beta[2], gamma1= Gamma[1],
+           gamma2 = Gamma[2], pi1=Pi[1], pi2 = Pi[2])
+
+# run program
+lgiv.obs =  mle(lgIVlik, start = obs, method = "L-BFGS-B",
+            lower = c(1e-6,1e-6,rep(-Inf,8)),
+            upper = c(rep(Inf,10)))
+lgiv.tru =  mle(lgIVlik, start = true, method = "L-BFGS-B",
+                lower = c(1e-6,1e-6,rep(-Inf,8)),
+                upper = c(rep(Inf,10)))
+
+# compare coefficients to truth
+comp<-data.frame(reg = c(sig_v=sd(t1$res), sig_u=sd(t3$res),
+                         tau1=0,tau0=0,beta1=t3$coef[[2]], beta2=t3$coef[[3]],
+                         gamma1=t2$coef[[2]],gamma2=t2$coef[[3]],
+                         pi1=t1$coef[[2]],pi2=t1$coef[[3]]),  
+                 mle.from.obs = c(lgiv.obs@coef), 
+                 mle.from.true = c(lgiv.tru@coef),
+                 truth = c(sig_v, sig_u, tau1, tau0,Beta[1],Beta[2],
+                           Gamma[1], Gamma[2], Pi[1], Pi[2]))
+View(comp)
