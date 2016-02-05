@@ -1,0 +1,77 @@
+###################################################################
+#
+# this file isolates the lognormal IV likelihood function
+#
+# still has issues if tau's too high
+###################################################################
+
+lgIVlik <- function(sig_v, sig_u, tau1,tau0,beta1, beta2,gamma1,gamma2,pi1,pi2){
+  
+  ## conditional means and variances
+  
+  # helpers
+  alpha0_2 = tau0/(sig_v^2); alpha1_2 = tau1/(sig_v^2)
+  alpha0_12 = tau0/((sig_u^2)*(sig_v^2) - (tau1^2))
+  
+  # parameters
+  mu0_12 = gamma1*x1 + gamma2*x2 + 
+    alpha0_12*(-tau1*(log(y1) - (beta1*x1 + beta2*x2)) + (sig_u^2)*(x2 - (pi1*x1 + pi2*z)))
+  var0_12 = 1 - alpha0_12*tau0*sig_u^2
+  
+  if(var0_12 <= 0){
+    print("sig0_12 < 0, replacing with 1e6")
+    stop
+    sig0_12 <- 1e6
+  } else {
+    sig0_12 = sqrt(var0_12)
+  }
+  
+  mu0_2 = gamma1*x1 + gamma2*x2 + alpha0_2*(x2 - (pi1*x1 + pi2*z))
+  var0_2 = 1 - alpha0_2*tau0
+  
+  if(var0_2 <= 0){
+    print("sig0_2 < 0, replacing with 1e6")
+    stop
+    sig0_2 <- 1e6
+  } else {
+    sig0_2 = sqrt(var0_2)
+  }
+  
+  mu1_2 = beta1*x1 + beta2*x2 + alpha1_2*(x2 - (pi1*x1 + pi2*z))
+  var1_2 = sig_u^2 - alpha1_2*tau1
+  
+  if(var1_2 <= 0){
+    print("sig1_2 < 0, replacing with 1e6")
+    stop
+    sig1_2 <- 1e6
+  } else {
+    sig1_2 = sqrt(var1_2)
+  }
+  
+  I <- rep(0, length(y1))
+  I[y1 > 0] <- 1
+  
+  ## densities
+  
+  f1 = 1-pnorm(mu0_2/sig0_2)
+  f1[is.infinite(f1)] <- NA
+  
+  f2 = pnorm(mu0_2/sig0_2)*dlnorm(y1, mu1_2, sig1_2)
+  f2 = pnorm(mu0_12/sig0_12)*dlnorm(y1, mu1_2, sig1_2)
+  f2[is.infinite(f2)] <- NA
+  
+  f3 = dnorm(x2, pi1*x1 + pi2*z, sig_v)
+  
+  full = c(f1^(1-I)*f2^I*f3)
+  if(length(full[is.infinite(full) || is.nan(full) || full==0 || is.na(full)]) > 0){
+    print("infinite/nan/0/na values of likelihood")
+    full <- 1e-6
+  }
+  
+  ## log likelihood
+  
+  ll = -sum( log(full) )
+  print(ll)
+  ll
+  
+}
