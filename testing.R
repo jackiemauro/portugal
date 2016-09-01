@@ -27,6 +27,7 @@ require(xtable)
 
 
 # for now, need to set all these values to strings
+# when x22 and x23 don't include all x1's, gammas get weird
 regs = list(formula = 'y1 ~ x11 + x12+ x21 + x22 + x23',
             exog = list('x11','x12'),
             inst = list('z1','z2','z3'),
@@ -49,8 +50,15 @@ j = length(regs$endogReg); l = length(regs$inst)
 ### get the start values once
 start = hurdleIV.start_vals(regs, family = 'lognormal')
 start = start[-5] # get rid of rho
+start = tagBeg(start) # tag the beginning of the pi values
 likelihood = getLik('lognormal')
-out = optim(unlist(start),loglik_lgnorm)
+out = optim(start,loglik_lgnorm)
+
+### do it from true values
+start = lgiv_params_mult[-c(1,2,3,4)]
+start = tagBeg(start) # tag the beginning of the pi values
+likelihood = getLik('lognormal')
+out = optim(start,loglik_lgnorm)
 
 
 

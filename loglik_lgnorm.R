@@ -20,11 +20,11 @@ loglik_lgnorm <- function(t){
   
   logy1 = log(y1)
   
-  regStarts = c(grep('(Intercept)',names(pi1)),length(pi1)+1)
+  regStarts = c(grep('subelem1',names(pi1)),length(pi1)+1)
   v = diff(regStarts)
   
   pi1 = split(pi1, rep(1:length(v),v))
-  pi2 = split(pi2,rep(1:l,l))
+  pi2 = split(pi2,rep(1:l,c(rep(l,l))))
   
   #params = t
   # make sig_err
@@ -75,11 +75,11 @@ loglik_lgnorm <- function(t){
   
   #Parameters for y0star given x2
   mu_y0_x2 = mu_y0 + t(Sig[1,(m-j):(m-1)]%*%solve(sig2_x2)%*%t(x2-mu_x2))
-  sig2_y0_x2 = Sig[1,1] - Sig[1,(m-j):(m-1)]%*%solve(sig2_x2)
+  sig2_y0_x2 = Sig[1,1] - Sig[1,(m-j):(m-1)]%*%solve(sig2_x2)%*%Sig[(m-j):(m-1),1]
   
   #Parameters for log(y1star) given x2
   mu_y1_x2 = mu_y1 + t(Sig[2,(m-j):(m-1)]%*%solve(sig2_x2)%*%t(x2-mu_x2))
-  sig2_y1_x2 = Sig[2,2] - Sig[2,(m-j):(m-1)]%*%solve(sig2_x2)
+  sig2_y1_x2 = Sig[2,2] - Sig[2,(m-j):(m-1)]%*%solve(sig2_x2)%*%Sig[(m-j):(m-1),2]
   
   #Parameters for y0star given y1star and x2
   mu_y0_y1x2 = mu_y0 + t(Sig[1,2:(m-1),drop=FALSE]%*%solve(Sig[2:(m-1),2:(m-1)])%*%t(cbind(logy1-mu_y1,x2-mu_x2)))

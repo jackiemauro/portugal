@@ -24,6 +24,25 @@ getLik <- function(family){
   return(loglik)
 }
 
+tagBeg <- function(b){
+  # this function just tags the start of lists by 
+  # appending a tag to their name
+  
+  for( ls in 1:length(b) ){
+    names(b)[ls] <- paste(names(b)[ls],paste0('ls',ls),sep = "_")
+    
+    for( elm in 1:length(b[[ls]]) ){
+      names(b[[ls]])[elm] <- paste0('elem',elm)
+      
+      for( subelm in 1:1:length(b[[ls]][[elm]]) ){
+        names(b[[ls]][[elm]])[subelm] <- paste0('subelem',subelm)
+      }
+    }
+  }
+  
+  return(unlist(b))
+}
+
 hurdleIV.function <- function(formula, family = 'cragg1', data = list(),...){
   
   # get starting values
