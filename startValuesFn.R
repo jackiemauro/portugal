@@ -12,7 +12,6 @@
 #                          x22~x11+z1+z2+z3,
 #                          x23~x11+z1+z2+z3))
 # 
-## set y1 to the log of y1 if you want to run a loglinear model
 ## if you leave endogReg empty, will default to using all exog & inst
 ## in the first stage regressions
 ###############################################################
