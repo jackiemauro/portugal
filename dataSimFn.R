@@ -1,6 +1,5 @@
 #################################################################
 # Combining data simulation code into one
-# To do: global assignment tough
 #################################################################
 
 
@@ -20,15 +19,24 @@ hurdleIV.gen_hurdleSim <- function(formula,
   beta2 = params$beta2; gamma2 = params$gamma2; pi2 = params$pi2
   sig_v = params$sig_v; sig_u = params$sig_u
   tau0 = params$tau0; tau1 = params$tau1
-  m = length(mux1) #old: m = length(mux1) + 1
-  j = length(muz)
-  k = length(sig_v)
+  m = length(formula$exog) #number of exogenous variables
+  j = length(formula$inst) #number of instruments
+  k = length(formula$endog) #number of endogenous variables
+  
+  if(j<k){
+    print("Error: Too few instruments")
+    return(NA)
+  }
+  
+  if(j>k){
+    print("Warning: More instruments than endogenous variables")
+  }
   
   if(het == TRUE){
     # FIGURE OUT HOW TO PROGRAM IN HETEROSCEDASTICITY
   }
   
-  Sig_x2 = matrix(diag(j)*(unlist(sig_v))^2, nrow = j)
+  Sig_x2 = matrix(diag(k)*(unlist(sig_v))^2, nrow = k)
   
   if(rho==F){rho=0}
   Sig_y = matrix(c(1,rho,rho,sig_u^2), ncol = 2, byrow = T)
@@ -48,7 +56,7 @@ hurdleIV.gen_hurdleSim <- function(formula,
   }
   
   #Transformation matrix from (eta, u, v) to (y0*, log y1*, x2) (without the mean)
-  A = diag(j+2)
+  A = diag(k+2)
   A[1,] = c(1,0,beta2)
   A[2,] = c(0,1,gamma2)
   
@@ -63,7 +71,6 @@ hurdleIV.gen_hurdleSim <- function(formula,
   #Construct the variables
   x1 = matrix(c(rep(NA,m*n)),ncol=m)
   nams = c(rep(NA,m))
-  # old -- x11 was an intercept
   for(ii in 1:m){
     nams[ii] <- paste("x1", ii, sep = "")
     x1[,ii] = c(rnorm(n,mux1[(ii)],sigx1[(ii)]))
@@ -81,9 +88,9 @@ hurdleIV.gen_hurdleSim <- function(formula,
   colnames(z) = nams
   
   
-  x2 = matrix(c(rep(NA,j*n)),ncol=j)
-  nams = c(rep(NA,j))
-  for(ii in 1:j){
+  x2 = matrix(c(rep(NA,k*n)),ncol=k)
+  nams = c(rep(NA,k))
+  for(ii in 1:k){
     nams[ii] = paste("x2", ii, sep = "")
     assign(nams[ii], c(rep(0,length(x11))))
     form = as.formula(formula$endogReg[[ii]])
@@ -102,7 +109,7 @@ hurdleIV.gen_hurdleSim <- function(formula,
   mf = model.frame(formula = as.formula(form))
   m = dim(mf)[2]
   x = model.matrix(attr(mf,"terms"),data = mf)
-  x1Y = x[,1:(m-j)]; x2Y = x[,(m-j+1):m]
+  x1Y = x[,1:(m-k)]; x2Y = x[,(m-k+1):m]
   y0star = x1Y%*%gamma1 + x2Y%*%gamma2 + eta
   
   

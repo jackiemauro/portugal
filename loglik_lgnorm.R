@@ -18,13 +18,17 @@ loglik_lgnorm <- function(t){
   pi1 = t[grep('pi1',names(t))]
   pi2 = t[grep('pi2',names(t))]
   
+  j = length(regs$endog)
+  l = length(regs$inst)
   logy1 = log(y1)
   
   regStarts = c(grep('subelem1',names(pi1)),length(pi1)+1)
   v = diff(regStarts)
-  
   pi1 = split(pi1, rep(1:length(v),v))
-  pi2 = split(pi2,rep(1:l,c(rep(l,l))))
+  
+  regStarts = c(grep('subelem1',names(pi2)),length(pi2)+1)
+  v = diff(regStarts)
+  pi2 = split(pi2, rep(1:length(v),v))
   
   #params = t
   # make sig_err
@@ -47,16 +51,15 @@ loglik_lgnorm <- function(t){
   
   # get the means
   censored = y1<=0
-  j = length(regs$endog)
   
   # first get the x2 means so they're in the right shape
-  mu_x2 = matrix(c(rep(NA,j*length(y1))),ncol = 3)
+  mu_x2 = matrix(c(rep(NA,j*length(y1))),ncol = j)
   for(i in 1:j){
     formula = regs$endogReg[[i]]
     mf = model.frame(formula = formula)
     m = dim(mf)[2]
     x <- model.matrix(attr(mf, "terms"), data=mf)
-    x1temp = x[,1:(m-j)]; ztemp = x[,(m-j+1):m]
+    x1temp = x[,1:(m-l)]; ztemp = x[,(m-l+1):m]
     mu_x2[,i] = x1temp%*%pi1[[i]] + ztemp%*%pi2[[i]]
   }
   
@@ -65,7 +68,7 @@ loglik_lgnorm <- function(t){
   mf = model.frame(formula = formula)
   m = dim(mf)[2]
   x <- model.matrix(attr(mf,"terms"),data = mf)
-  x1 = x[,1:(m-j)]; x2 = x[,(m-j):(m-1)]
+  x1 = x[,1:(m-j)]; x2 = x[,(m-j+1):m]
   mu_y0 = x1%*%gamma1 + mu_x2%*%gamma2
   mu_y1 = x1%*%beta1 + mu_x2%*%beta2
   
