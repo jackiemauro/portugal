@@ -54,20 +54,12 @@ hurdleIV.gen_hurdleSim <- function(formula,
     print("bad start sigma values")
     stop
   }
-  
-  #Transformation matrix from (eta, u, v) to (y0*, log y1*, x2) (without the mean)
-  A = diag(k+2)
-  A[1,] = c(1,0,beta2)
-  A[2,] = c(0,1,gamma2)
-  
-  Sig = A%*%Sig_err%*%t(A)
-  
-  #Generate a matrix of the eta,u,v errors and split them out
-  euv = mvrnorm(n=n, mu = c(rep(0,dim(Sig)[1])), Sigma = Sig)
+
+  euv = mvrnorm(n=n, mu = c(rep(0,dim(Sig_err)[1])), Sigma = Sig_err)
   eta = euv[,1]
   u = euv[,2]
   v = matrix(c(euv[,3:dim(euv)[2]]),ncol = k)
-  
+
   #Construct the variables
   x1 = matrix(c(rep(NA,m*n)),ncol=m)
   nams = c(rep(NA,m))
