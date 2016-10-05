@@ -1,17 +1,17 @@
 #################################################################
 # Combining data simulation code into one
-# trying it with getting rid of intercept terms
+# putting too much variance into the x2's
 #################################################################
 
 
-hurdleIV.gen_hurdleSim_noInt <- function(formula,
-                                   family,
-                                   params,
-                                   het = FALSE,
-                                   clump = FALSE,
-                                   n=10000,
-                                   rho=F,
-                                   cond = T){
+hurdleIV.gen_hurdleSim <- function(formula,
+                          family,
+                          params,
+                          het = FALSE,
+                          clump = FALSE,
+                          n=10000,
+                          rho=F,
+                          cond = T){
   
   require(MASS)
   
@@ -91,7 +91,7 @@ hurdleIV.gen_hurdleSim_noInt <- function(formula,
     u = euv[,2]
     v = matrix(c(euv[,3:dim(euv)[2]]),ncol = k)
   }
-  
+
   # Construct the exogenous variables
   x1 = matrix(c(rep(NA,m*n)),ncol=m)
   nams = c(rep(NA,m))
@@ -121,19 +121,19 @@ hurdleIV.gen_hurdleSim_noInt <- function(formula,
     mf = model.frame(formula = form)
     m = dim(mf)[2]
     x = model.matrix(attr(mf, "terms"), data=mf)
-    x1temp = as.matrix(x[,2:(m-j)]); ztemp = as.matrix(x[,(m-j+1):m])
+    x1temp = as.matrix(x[,1:(m-j)]); ztemp = as.matrix(x[,(m-j+1):m])
     x2[,ii] = t(x1temp%*%pi1[[ii]] + ztemp%*%pi2[[ii]] + v[,ii])
     assign(nams[ii], x2[,ii])
   }
   colnames(x2) = nams
-  
+
   # then get the means for the y regressions
   form = formula$formula
   y1 = c(rep(0,length(x11)))
   mf = model.frame(formula = as.formula(form))
   m = dim(mf)[2]
   x = model.matrix(attr(mf,"terms"),data = mf)
-  x1Y = as.matrix(x[,2:(m-k)]); x2Y = as.matrix(x[,(m-k+1):m])
+  x1Y = as.matrix(x[,1:(m-k)]); x2Y = as.matrix(x[,(m-k+1):m])
   y0star = x1Y%*%as.matrix(gamma1) + x2Y%*%as.matrix(gamma2) + eta
   
   y1 = c(rep(0,n))

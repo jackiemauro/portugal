@@ -1,10 +1,9 @@
 ### calculates the log likelihood for a lognormal IV regression
-# does not include intercept terms
 
 # To do: cholesky decomposition
 # better way to find pi's
 
-loglik_lgnorm_noInt <- function(t){
+loglik_lgnorm <- function(t){
   
   # re-listify
   sig_u = t[grep('sig_u',names(t))]
@@ -25,11 +24,11 @@ loglik_lgnorm_noInt <- function(t){
   
   regStarts = c(grep('subelem1',names(pi1)),length(pi1)+1)
   v = diff(regStarts)
-  pi1 = as.matrix(split(pi1, rep(1:length(v),v)))
+  pi1 = split(pi1, rep(1:length(v),v))
   
   regStarts = c(grep('subelem1',names(pi2)),length(pi2)+1)
   v = diff(regStarts)
-  pi2 = as.matrix(split(pi2, rep(1:length(v),v)))
+  pi2 = split(pi2, rep(1:length(v),v))
   
   #params = t
   # make sig_err
@@ -60,7 +59,7 @@ loglik_lgnorm_noInt <- function(t){
     mf = model.frame(formula = formula)
     m = dim(mf)[2]
     x <- model.matrix(attr(mf, "terms"), data=mf)
-    x1temp = as.matrix(x[,2:(m-l)]); ztemp = as.matrix(x[,(m-l+1):m])
+    x1temp = as.matrix(x[,1:(m-l)]); ztemp = as.matrix(x[,(m-l+1):m])
     mu_x2[,i] = x1temp%*%pi1[[i]] + ztemp%*%pi2[[i]]
   }
   
@@ -69,7 +68,7 @@ loglik_lgnorm_noInt <- function(t){
   mf = model.frame(formula = formula)
   m = dim(mf)[2]
   x <- model.matrix(attr(mf,"terms"),data = mf)
-  x1 = as.matrix(x[,2:(m-j)]); x2 = as.matrix(x[,(m-j+1):m])
+  x1 = as.matrix(x[,1:(m-j)]); x2 = as.matrix(x[,(m-j+1):m])
   mu_y0 = x1%*%gamma1 + mu_x2%*%gamma2
   mu_y1 = x1%*%beta1 + mu_x2%*%beta2
   
@@ -93,7 +92,7 @@ loglik_lgnorm_noInt <- function(t){
   ###Calculate the contributions to the log likelihood.
   x2part = 0
   for(i in 1:j){
-    temp = dnorm(x2[,i],mean=mu_x2[,i],sd=sqrt(sig2_x2[i,i]),log = TRUE)
+    temp = dnorm(x2[,i],mean=mu_x2[i,],sd=sqrt(sig2_x2[i,i]),log = TRUE)
     x2part = x2part + temp
   }
   #When y1=0:

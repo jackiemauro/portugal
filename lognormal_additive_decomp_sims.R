@@ -69,12 +69,22 @@ regs = list(formula = 'y1 ~ x11 + x21 ',
 pars = lgiv_params
 pars$pi1 = list(c(.1,2)); pars$pi2 = list(.7)
 
+#for no intercept version:
+pars$pi1 = list(c(2)); pars$pi2 = list(.7)
+pars$gamma1 = pars$gamma1[-1]
+pars$beta1 = pars$beta1[-1]
+
 detach(data)
 beta2 = NA; beta21 = NA; beta22 = NA
 for(i in 1:10){
   
-  #simulate dataset
+  #simulate dataset -- with or without intercept
   sims = hurdleIV.gen_hurdleSim(n = 1000,
+                                family = 'lognormal', 
+                                params = pars,
+                                formula = regs)
+  
+  sims = hurdleIV.gen_hurdleSim_noInt(n = 1000,
                                 family = 'lognormal', 
                                 params = pars,
                                 formula = regs)
@@ -97,7 +107,15 @@ for(i in 1:10){
   start = tagBeg(start) # tag the beginning of the pi values
   likelihood = getLik('lognormal')
   out = optim(start,likelihood)
+  out_noInt = optim(start,loglik_lgnorm_noInt)
   beta2[i] = out$par['beta2_ls6.elem1']
+  
+  # comparison (delete me)
+  test_par = c(.8,.75,.02,.04,-.15,-.5,-.2,-.05,2,.7)
+  x1 = x11; z = z1; x2 = x21
+  loglik_max(test_par) 
+  loglik_lgnorm_noInt(start)
+  
   
   detach(data)
   data$y1 = y11
