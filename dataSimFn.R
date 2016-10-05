@@ -1,5 +1,6 @@
 #################################################################
 # Combining data simulation code into one
+# putting too much variance into the x2's
 #################################################################
 
 
@@ -9,7 +10,8 @@ hurdleIV.gen_hurdleSim <- function(formula,
                           het = FALSE,
                           clump = FALSE,
                           n=10000,
-                          rho=F){
+                          rho=F,
+                          cond = T){
   
   require(MASS)
   
@@ -54,11 +56,27 @@ hurdleIV.gen_hurdleSim <- function(formula,
     print("bad start sigma values")
     stop
   }
-
-  euv = mvrnorm(n=n, mu = c(rep(0,dim(Sig_err)[1])), Sigma = Sig_err)
-  eta = euv[,1]
-  u = euv[,2]
-  v = matrix(c(euv[,3:dim(euv)[2]]),ncol = k)
+  
+  if(cond == F){
+    euv = mvrnorm(n=n, mu = c(rep(0,dim(Sig_err)[1])), Sigma = Sig_err)
+    eta = euv[,1]
+    u = euv[,2]
+    v = matrix(c(euv[,3:dim(euv)[2]]),ncol = k)
+  }
+  else{
+    #Transformation matrix from (eta, u, v) to (y0*, log y1*, x2) (without the mean)
+    A = diag(k+2)
+    A[1,] = c(1,0,beta2)
+    A[2,] = c(0,1,gamma2)
+    
+    Sig = A%*%Sig_err%*%t(A)
+    
+    #Generate a matrix of the eta,u,v errors and split them out
+    euv = mvrnorm(n=n, mu = c(rep(0,dim(Sig)[1])), Sigma = Sig)
+    eta = euv[,1]
+    u = euv[,2]
+    v = matrix(c(euv[,3:dim(euv)[2]]),ncol = k)
+  }
 
   #Construct the variables
   x1 = matrix(c(rep(NA,m*n)),ncol=m)
@@ -89,7 +107,7 @@ hurdleIV.gen_hurdleSim <- function(formula,
     mf = model.frame(formula = form)
     m = dim(mf)[2]
     x = model.matrix(attr(mf, "terms"), data=mf)
-    x1temp = x[,1:(m-j)]; ztemp = x[,(m-j+1):m]
+    x1temp = as.matrix(x[,1:(m-j)]); ztemp = as.matrix(x[,(m-j+1):m])
     x2[,ii] = t(x1temp%*%pi1[[ii]] + ztemp%*%pi2[[ii]] + v[,ii])
     assign(nams[ii], x2[,ii])
   }
@@ -101,20 +119,20 @@ hurdleIV.gen_hurdleSim <- function(formula,
   mf = model.frame(formula = as.formula(form))
   m = dim(mf)[2]
   x = model.matrix(attr(mf,"terms"),data = mf)
-  x1Y = x[,1:(m-k)]; x2Y = x[,(m-k+1):m]
-  y0star = x1Y%*%gamma1 + x2Y%*%gamma2 + eta
+  x1Y = as.matrix(x[,1:(m-k)]); x2Y = as.matrix(x[,(m-k+1):m])
+  y0star = x1Y%*%as.matrix(gamma1) + x2Y%*%as.matrix(gamma2) + eta
   
   
   if(family == 'lognormal'){
     if(clump == T){
       cl = sample(c(0,1),n,replace=T,prob = c(.8,.2))
-      logy1star = cl*.5 + (1-cl)*(x1Y%*%beta1 + x2Y%*%beta2 +u)
+      logy1star = cl*.5 + (1-cl)*(x1Y%*%as.matrix(beta1) + x2Y%*%as.matrix(beta2) +u)
       #logy1star = cl*.5 + (1-cl)*(t(beta1)%*%x1 + x2*beta2+ u) 
     }
     
     else{
       #logy1star = t(beta1)%*%x1 + t(beta2)%*%x2+ u
-      logy1star = x1Y%*%beta1 + x2Y%*%beta2 + u
+      logy1star = x1Y%*%as.matrix(beta1) + x2Y%*%as.matrix(beta2) + u
     }
     y1t = exp(logy1star)
   }
@@ -122,7 +140,7 @@ hurdleIV.gen_hurdleSim <- function(formula,
     require(truncnorm)
     #y1star = t(beta1)%*%x1 + t(beta2)%*%x2+ u
     y1star = x1Y%*%beta1 + x2Y%*%beta2 + u
-    y1t = t(as.matrix(rtruncnorm(n,a=0,mean = x1Y%*%beta1 + x2Y%*%beta2, sd = sig_u),nrow=1))
+    y1t = t(as.matrix(rtruncnorm(n,a=0,mean = x1Y%*%as.matrix(beta1) + x2Y%*%as.matrix(beta2), sd = sig_u),nrow=1))
   }
   else{
     print('family must be lognormal or cragg1')
@@ -133,13 +151,19 @@ hurdleIV.gen_hurdleSim <- function(formula,
   y1 = c(as.numeric(y0star>0)*y1t)
   dat = data.frame(x1, x2, z, y1 = y1)
   
-  if(rho!=F){true = list(sig_v = sig_v, sig_u = sig_u, rho=rho, tau0 = tau0, tau1=tau1,
-                           beta1 = beta1,beta2 = beta2, gamma1 = gamma1,gamma2 = gamma2,
-                           pi1=pi1,pi2 = pi2)}
-  else{true = list(sig_v = sig_v, sig_u = sig_u, tau0 = tau0, tau1=tau1,
-                     beta1 = beta1,beta2 = beta2, gamma1 = gamma1,gamma2 = gamma2,
-                     pi1=pi1, pi2 = pi2)}
-  out = list( dat = dat, parameters = true )
+  if(rho!=F){true = list(sig_u = sig_u, sig_v = sig_v, 
+                         tau0 = tau0, tau1=tau1,rho=rho, 
+                         beta1 = beta1,beta2 = beta2, 
+                         gamma1 = gamma1,gamma2 = gamma2,
+                         pi1=pi1,pi2 = pi2)}
+  else{true = list(sig_u = sig_u, sig_v = sig_v, 
+                   tau0 = tau0, tau1=tau1,
+                   beta1 = beta1,beta2 = beta2, 
+                   gamma1 = gamma1,gamma2 = gamma2,
+                   pi1=pi1,pi2 = pi2)}
+  adds = list( Sig = Sig, Sig_err = Sig_err, A=A,
+               varx2 = var(x2), vary0star = var(y0star) )
+  out = list( dat = dat, parameters = true, additional = adds )
   
   return(out)
   
