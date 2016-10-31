@@ -39,7 +39,7 @@ loglik_lgnorm <- function(t){
   c = matrix(diag(j)*(unlist(sig_v))^2, nrow = j)
   Sig_err = rbind(cbind(b,a),cbind(t(a),c))
   if(min(eigen(Sig_err)$values)<=0){
-    print("negative eigenvalue in Sigma")
+    print("negative eigenvalue in Sigma_err")
     return(Inf)
   }
   if((sig_u<=0)|(any(sig_v<=0))){
@@ -53,7 +53,7 @@ loglik_lgnorm <- function(t){
   A[2,] = c(0,1,beta2)
   
   Sig = A%*%Sig_err%*%t(A)
-  if(min(eigen(Sig_err)$values)<=0){
+  if(min(eigen(Sig)$values)<=0){
     print("negative eigenvalue in Sigma")
     return(Inf)
   }
@@ -66,10 +66,10 @@ loglik_lgnorm <- function(t){
   censored = y1<=0
   
   # first get the x2 means so they're in the right shape
-  mu_x2 = matrix(c(rep(NA,j*length(y1))),ncol = j)
+  mu_x2 = matrix(c(rep(NA,j*length(y1>0))),ncol = j)
   for(i in 1:j){
     formula = regs$endogReg[[i]]
-    mf = model.frame(formula = formula)
+    mf = model.frame(formula = formula, na.action = NULL)
     m = dim(mf)[2]
     x <- model.matrix(attr(mf, "terms"), data=mf)
     x1temp = as.matrix(x[,2:(m-l)]); ztemp = as.matrix(x[,(m-l+1):m])
@@ -78,7 +78,7 @@ loglik_lgnorm <- function(t){
   
   # then get the means for the y regressions
   formula = regs$formula
-  mf = model.frame(formula = formula)
+  mf = model.frame(formula = formula, na.action = NULL)
   m = dim(mf)[2]
   x <- model.matrix(attr(mf,"terms"),data = mf)
   x1 = as.matrix(x[,2:(m-j)]); x2 = as.matrix(x[,(m-j+1):m])
@@ -120,6 +120,6 @@ loglik_lgnorm <- function(t){
   ll = ifelse(censored,ll0,ll1)
   
   #Return the negative log-likelihood
-  -sum(ll)
+  -sum(ll, na.rm = T)
   
 }
