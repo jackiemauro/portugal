@@ -1,10 +1,10 @@
-### calculates the log likelihood for a Cragg IV regression
-# NOT FINISHED
+### calculates the log likelihood for a lognormal IV regression
+# does not include intercept terms
 
 # To do: cholesky decomposition
 # better way to find pi's
 
-loglik_cragg <- function(t){
+loglik_lgnorm <- function(t){
   
   # re-listify
   sig_u = t[grep('sig_u',names(t))]
@@ -19,17 +19,22 @@ loglik_cragg <- function(t){
   pi1 = t[grep('pi1',names(t))]
   pi2 = t[grep('pi2',names(t))]
   
+  j = length(regs$endog)
+  l = length(regs$inst)
+  
   regStarts = c(grep('subelem1',names(pi1)),length(pi1)+1)
   v = diff(regStarts)
+  pi1 = as.matrix(split(pi1, rep(1:length(v),v)))
   
-  pi1 = split(pi1, rep(1:length(v),v))
-  pi2 = split(pi2,rep(1:l,c(rep(l,l))))
+  regStarts = c(grep('subelem1',names(pi2)),length(pi2)+1)
+  v = diff(regStarts)
+  pi2 = as.matrix(split(pi2, rep(1:length(v),v)))
   
   #params = t
   # make sig_err
   a = rbind(tau0,tau1)
   #b = matrix(c(1,rho,rho,sig_u),ncol = 2, byrow = T)
-  b = matrix(c(1,0,0,sig_u),ncol = 2, byrow = T)
+  b = matrix(c(1,0,0,sig_u^2),ncol = 2, byrow = T)
   c = matrix(diag(j)*(unlist(sig_v))^2, nrow = j)
   Sig_err = rbind(cbind(b,a),cbind(t(a),c))
   if(min(eigen(Sig_err)$values)<=0){return(Inf)}
@@ -37,8 +42,8 @@ loglik_cragg <- function(t){
   
   #Transformation matrix from (eta, u, v) to (y0*, log y1*, x2) (without the mean)
   A = diag(j+2)
-  A[1,] = c(1,0,beta2)
-  A[2,] = c(0,1,gamma2)
+  A[1,] = c(1,0,gamma2)
+  A[2,] = c(0,1,beta2)
   
   Sig = A%*%Sig_err%*%t(A)
   if(min(eigen(Sig_err)$values)<=0){return(Inf)}
@@ -46,16 +51,15 @@ loglik_cragg <- function(t){
   
   # get the means
   censored = y1<=0
-  j = length(regs$endog)
   
   # first get the x2 means so they're in the right shape
-  mu_x2 = matrix(c(rep(NA,j*length(y1))),ncol = 3)
+  mu_x2 = matrix(c(rep(NA,j*length(y1))),ncol = j)
   for(i in 1:j){
     formula = regs$endogReg[[i]]
     mf = model.frame(formula = formula)
     m = dim(mf)[2]
     x <- model.matrix(attr(mf, "terms"), data=mf)
-    x1temp = x[,1:(m-j)]; ztemp = x[,(m-j+1):m]
+    x1temp = as.matrix(x[,2:(m-l)]); ztemp = as.matrix(x[,(m-l+1):m])
     mu_x2[,i] = x1temp%*%pi1[[i]] + ztemp%*%pi2[[i]]
   }
   
@@ -64,30 +68,31 @@ loglik_cragg <- function(t){
   mf = model.frame(formula = formula)
   m = dim(mf)[2]
   x <- model.matrix(attr(mf,"terms"),data = mf)
-  x1 = x[,1:(m-j)]; x2 = x[,(m-j):(m-1)]
+  x1 = as.matrix(x[,2:(m-j)]); x2 = as.matrix(x[,(m-j+1):m])
   mu_y0 = x1%*%gamma1 + mu_x2%*%gamma2
   mu_y1 = x1%*%beta1 + mu_x2%*%beta2
   
   # now get the conditional means
   #Parameters for x2
-  sig2_x2 = Sig[(m-j):(m-1),(m-j):(m-1)]
+  k = dim(Sig)[1]
+  sig2_x2 = as.matrix(Sig[(k+1-j):k,(k+1-j):k])
   
   #Parameters for y0star given x2
-  mu_y0_x2 = mu_y0 + t(Sig[1,(m-j):(m-1)]%*%solve(sig2_x2)%*%t(x2-mu_x2))
-  sig2_y0_x2 = Sig[1,1] - Sig[1,(m-j):(m-1)]%*%solve(sig2_x2)%*%Sig[(m-j):(m-1),1]
+  mu_y0_x2 = mu_y0 + t(Sig[1,(k+1-j):k]%*%solve(sig2_x2)%*%t(x2-mu_x2))
+  sig2_y0_x2 = Sig[1,1] - Sig[1,(k+1-j):k]%*%solve(sig2_x2)%*%Sig[(k+1-j):k,1]
   
   #Parameters for log(y1star) given x2
-  mu_y1_x2 = mu_y1 + t(Sig[2,(m-j):(m-1)]%*%solve(sig2_x2)%*%t(x2-mu_x2))
-  sig2_y1_x2 = Sig[2,2] - Sig[2,(m-j):(m-1)]%*%solve(sig2_x2)%*%Sig[(m-j):(m-1),2]
+  mu_y1_x2 = mu_y1 + t(Sig[2,(k+1-j):k]%*%solve(sig2_x2)%*%t(x2-mu_x2))
+  sig2_y1_x2 = Sig[2,2] - Sig[2,(k+1-j):k]%*%solve(sig2_x2)%*%Sig[(k+1-j):k,2]
   
   #Parameters for y0star given y1star and x2
-  mu_y0_y1x2 = mu_y0 + t(Sig[1,2:(m-1),drop=FALSE]%*%solve(Sig[2:(m-1),2:(m-1)])%*%t(cbind(y1-mu_y1,x2-mu_x2)))
-  sig2_y0_y1x2 = Sig[1,1] - Sig[1,2:(m-1),drop=FALSE]%*%solve(Sig[2:(m-1),2:(m-1)])%*%Sig[2:(m-1),1,drop=FALSE]
+  mu_y0_y1x2 = mu_y0 + t(Sig[1,2:k,drop=FALSE]%*%solve(Sig[2:k,2:k])%*%t(cbind(y1-mu_y1,x2-mu_x2)))
+  sig2_y0_y1x2 = Sig[1,1] - Sig[1,2:k,drop=FALSE]%*%solve(Sig[2:k,2:k])%*%Sig[2:k,1,drop=FALSE]
   
   ###Calculate the contributions to the log likelihood.
   x2part = 0
   for(i in 1:j){
-    temp = dnorm(x2[,i],mean=mu_x2[i,],sd=sqrt(sig2_x2[i,i]),log = TRUE)
+    temp = dnorm(x2[,i],mean=mu_x2[,i],sd=sqrt(sig2_x2[i,i]),log = TRUE)
     x2part = x2part + temp
   }
   #When y1=0:
@@ -98,7 +103,7 @@ loglik_cragg <- function(t){
     dnorm(y1, mean=mu_y1_x2, sd=sqrt(sig2_y1_x2),log = TRUE) + 
     x2part -
     pnorm(0, mean = mu_y1_x2, sd = sqrt(sig2_y1_x2), log.p = T, lower.tail = F)
-
+  
   
   #Combine them, based on y1
   ll = ifelse(censored,ll0,ll1)

@@ -46,10 +46,10 @@ lm$coef[3] - lm1$coef[3] - lm2$coef[3]
 
 ## use real fn and loop
 Sig = matrix(c(.75,0,.04,0,1,.02,.04,.02,.8), byrow = T, ncol = 3)
-beta11 = c(-.02, -.3); beta12 = c(-.03, .15)
+beta11 = c(-.3); beta12 = c(.15)
 beta21 = -.4; beta22 = -.1
 params = lgiv_params
-params$pi1 = list(c(.1,.2)); params$pi2 = list(c(.7))
+params$pi1 = list(c(.2)); params$pi2 = list(c(.7))
 
 beta2_res = NA; beta21_res = NA; beta22_res = NA
 for(i in 1:10){
@@ -66,12 +66,12 @@ for(i in 1:10){
   y0star = .3 - .2*x1 + -.05*z + eta
   y0 = as.numeric(y0star>0)
   
-  lny1 = beta11[1] + beta11[2]*x1 + beta21*x2 + .5*u
-  lny2 = beta12[1] + beta12[2]*x1 + beta22*x2 + .5*u
+  lny1 = beta11*x1 + beta21*x2 + .5*u
+  lny2 = beta12*x1 + beta22*x2 + .5*u
   
   #lny = lny1 + lny2
   #lny = beta11[1] + beta12[1] + (beta11[2]+beta12[2])*x1 + (beta21 + beta22)*x2 + u
-  lny = -.05 - 0.15*x1 - .5*x2 + u
+  lny = 0.15*x1 - .5*x2 + u
   
   y11 = exp(lny1); y11[y0==0] = 0
   y12 = exp(lny2); y12[y0==0] = 0
@@ -86,7 +86,7 @@ for(i in 1:10){
   start = params
   start = tagBeg(start)
   out = optim(start,loglik_lgnorm)
-  beta2_res[i] = out$par['beta2_ls6.elem1']
+  beta2_res[i] = out$par['beta2_ls8.elem1']
   detach(data)
   
   attach(data1)
@@ -95,7 +95,7 @@ for(i in 1:10){
   start$beta1 = beta11
   start = tagBeg(start)
   out1 = optim(start,loglik_lgnorm)
-  beta21_res[i] = out1$par['beta2_ls6.elem1']
+  beta21_res[i] = out1$par['beta2_ls8.elem1']
   detach(data1)
   
   attach(data2)
@@ -104,6 +104,6 @@ for(i in 1:10){
   start$beta1 = beta12
   start = tagBeg(start)
   out2 = optim(start,loglik_lgnorm)
-  beta22_res[i] = out2$par['beta2_ls6.elem1']
+  beta22_res[i] = out2$par['beta2_ls8.elem1']
   detach(data2)
 }

@@ -4,7 +4,7 @@
 # To do: cholesky decomposition
 # better way to find pi's
 
-loglik_lgnorm_noInt <- function(t){
+loglik_lgnorm <- function(t){
   
   # re-listify
   sig_u = t[grep('sig_u',names(t))]
@@ -25,11 +25,11 @@ loglik_lgnorm_noInt <- function(t){
   
   regStarts = c(grep('subelem1',names(pi1)),length(pi1)+1)
   v = diff(regStarts)
-  pi1 = as.matrix(split(pi1, rep(1:length(v),v)))
+  pi1 = split(pi1, rep(1:length(v),v))
   
   regStarts = c(grep('subelem1',names(pi2)),length(pi2)+1)
   v = diff(regStarts)
-  pi2 = as.matrix(split(pi2, rep(1:length(v),v)))
+  pi2 = split(pi2, rep(1:length(v),v))
   
   #params = t
   # make sig_err
@@ -38,8 +38,14 @@ loglik_lgnorm_noInt <- function(t){
   b = matrix(c(1,0,0,sig_u^2),ncol = 2, byrow = T)
   c = matrix(diag(j)*(unlist(sig_v))^2, nrow = j)
   Sig_err = rbind(cbind(b,a),cbind(t(a),c))
-  if(min(eigen(Sig_err)$values)<=0){return(Inf)}
-  if((sig_u<=0)|(any(sig_v<=0))){return(Inf)}
+  if(min(eigen(Sig_err)$values)<=0){
+    print("negative eigenvalue in Sigma")
+    return(Inf)
+  }
+  if((sig_u<=0)|(any(sig_v<=0))){
+    print('negative variance value')
+    return(Inf)
+  }
   
   #Transformation matrix from (eta, u, v) to (y0*, log y1*, x2) (without the mean)
   A = diag(j+2)
@@ -47,8 +53,14 @@ loglik_lgnorm_noInt <- function(t){
   A[2,] = c(0,1,beta2)
   
   Sig = A%*%Sig_err%*%t(A)
-  if(min(eigen(Sig_err)$values)<=0){return(Inf)}
-  if((sig_u<=0)|(any(sig_v<=0))){return(Inf)}
+  if(min(eigen(Sig_err)$values)<=0){
+    print("negative eigenvalue in Sigma")
+    return(Inf)
+  }
+  if((sig_u<=0)|(any(sig_v<=0))){
+    print('negative variance value')
+    return(Inf)
+  }
   
   # get the means
   censored = y1<=0
@@ -61,7 +73,7 @@ loglik_lgnorm_noInt <- function(t){
     m = dim(mf)[2]
     x <- model.matrix(attr(mf, "terms"), data=mf)
     x1temp = as.matrix(x[,2:(m-l)]); ztemp = as.matrix(x[,(m-l+1):m])
-    mu_x2[,i] = x1temp%*%pi1[[i]] + ztemp%*%pi2[[i]]
+    mu_x2[,i] = x1temp%*%as.matrix(pi1[[i]]) + ztemp%*%as.matrix(pi2[[i]])
   }
   
   # then get the means for the y regressions

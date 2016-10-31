@@ -4,7 +4,7 @@
 #################################################################
 
 
-hurdleIV.gen_hurdleSim_noInt <- function(formula,
+hurdleIV.gen_hurdleSim <- function(formula,
                                    family,
                                    params,
                                    het = FALSE,

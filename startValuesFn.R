@@ -60,13 +60,13 @@ hurdleIV.start_vals <- function(object,family,...){
   }
   
   j = length(object$endog); l = length(object$inst); m = length(linReg$coefficients)
-  beta1 = linReg$coefficients[1:(m-j)]; beta2 = linReg$coefficients[(m-j+1):m]
+  beta1 = linReg$coefficients[2:(m-j)]; beta2 = linReg$coefficients[(m-j+1):m]
   sig_u = sd(linReg$res)
-  gamma1 = probReg$coefficients[1:(m-j)]; gamma2 = probReg$coefficients[(m-j+1):m]
+  gamma1 = probReg$coefficients[2:(m-j)]; gamma2 = probReg$coefficients[(m-j+1):m]
   pi2 = list(); pi1 = list(); sig_v = list()
   for(i in 1:j){
     m = length(endRegs[[i]]$coefficients)
-    pi1[[i]] = endRegs[[i]]$coefficients[1:(m-l)]
+    pi1[[i]] = endRegs[[i]]$coefficients[2:(m-l)]
     pi2[[i]] = endRegs[[i]]$coefficients[(m-l+1):m]
     sig_v[[i]] = sd(endRegs[[i]]$res)
   }
