@@ -29,7 +29,7 @@ hurdle.IV<-function(formula,
   y_endog = endog_mat[names(endog_mat) %in% y_colnames]
   if(any(names(inst_mat)%in% y_colnames)){
     print("Error: main regression cannot include instruments")
-    stop
+    return(NA)
   }
   
   
@@ -39,19 +39,19 @@ hurdle.IV<-function(formula,
     form = as.formula(formula)
     }, error = function(e){
       print("Error: formula must be a formula, eg: y~x1+x2")
-      stop
+      return(NA)
     }
     )
   # check the formula includes endogenous variables
   if(dim(y_endog)[2]==0){
     print("Error: endogenous variables must be included in main regression")
-    stop
+    return(NA)
   }
   
   # check no more endogenous variables than instruments
   if(length(inst)<length(endog)){
     print("Error: More endogenous variables than instruments")
-    stop
+    return(NA)
   }
   
   ##### make endog reg #####
@@ -65,7 +65,7 @@ hurdle.IV<-function(formula,
   else{
     if(length(endog_reg)!=dim(endog_mat)[2]){
       print("Error: Need one regression for each endogenous variable")
-      stop
+      return(NA)
     }
   }
   
@@ -91,20 +91,20 @@ hurdle.IV<-function(formula,
   else{
     if(class(start_val) != "list"){
       print("Error: start values must be a list")
-      stop
+      return(NA)
     }
     if(length(start_val[['beta']]!=length(start_val[['gamma']]))){
       print("Error: beta and gamma must be equal length vectors")
-      stop
+      return(NA)
     }
     k = dim(endog_mat)[2]
     if(length(start_val$pi)!=k | length(start_val$tau0)!= k | length(start_val$tau1)!=k){
       print("Error: tau0, tau1 and number of pi coordinates must equal number of endogenous variables")
-      stop
+      return(NA)
     }
   }
   
-  # start values should be cholesky-fied if that option is true
+  # start cov values should be cholesky-fied if that option is true
   cov_start = make.cov(rho=start_val$rho
                        ,tau0=start_val$tau0
                        ,tau1=start_val$tau1
@@ -140,11 +140,11 @@ rename.input <- function(input){
 
 make.cov<- function(rho,tau0,tau1,y_sd,endog_sd){
       mat1 = matrix(c(1,rho,rho,y_sd^2),ncol = 2, byrow = T)
-      tau_mat = as.matrix(cbind(tau0,tau1))
+      tau_mat = as.matrix(cbind(unlist(tau0),unlist(tau1)))
       endog_mat = diag(length(endog_sd))*endog_sd^2
       Sig_err = rbind(cbind(mat1,t(tau_mat)),cbind(tau_mat,endog_mat))
       
-      return(Sig_err)
+      return(as.matrix(Sig_err))
     }
 
 
