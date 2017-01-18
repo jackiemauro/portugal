@@ -78,8 +78,8 @@ hurdle.IV<-function(formula,
   mf = cbind(outcome, exog_mat, inst_mat, endog_mat)
   mf = mf[complete.cases(mf),] #drop NA's
   detach(data)
+  attach(mf)
   
-  # with new datasets, start from here
   ############# get start values #######
   # if start values aren't specified, get start values
   if(start_val == F){
@@ -113,16 +113,31 @@ hurdle.IV<-function(formula,
   if(options$cholesky == T){
     cov_start = chol(cov_start)
   }
-
   
+
   ########## run optimizer #############
+  # save info about parameter lengths
+  pars = list(len_cov = length(which(upper.tri(cov_start, diag = T)))-1
+              ,num_endog = dim(endog_mat)[2]
+              ,num_betas = dim(y_mat)[2]
+              ,num_pis = lapply(ER_mat, function(x) dim(x)[2])
+              ,myChol = options$cholesky
+              ,ER_mat = ER_mat
+              ,y_mat = y_mat
+              ,endog_mat = endog_mat)
+  attach(pars)
+  
+  cov_in = cov_start[upper.tri(cov_start, diag = T)][-1]
+  start_vec = c(cov_in, start_val$beta, start_val$gamma, unlist(start_val$pi))
+  
   out = optim(start_vec
               , loglik_lgiv
               , method= options$method
               , hessian  = T
               , control = list(maxit = options$maxit,trace = options$trace)
   )
-
+  detach(mf)
+  detach(pars)
 }
 
 rename.input <- function(input){
