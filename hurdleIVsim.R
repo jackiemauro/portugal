@@ -45,7 +45,10 @@ hurdle.IV.sim <- function(formula = F,
   
   # make covariance matrix
   require(MASS)
-  cov = make.cov(rho,tau0,tau1,y_sd,endog_sd,gamma,beta)
+  cov = make.covTrans(list(rho = rho, y_sd = y_sd,endog_sd = endog_sd,
+                           tau0 = tau0,tau1 = tau1)
+                      , num_endog = length(endog_sd)
+                      , gamma = gamma, beta = beta,option = "parameters")
   errors = mvrnorm(n,rep(0,dim(cov)[1]),cov)
   
   # make endogenous variables
@@ -110,7 +113,7 @@ make.names <- function(len, pref){
   return(name)
 }
 
-make.cov <- function(rho,tau0,tau1,y_sd,endog_sd,gamma,beta){
+make.covTrans1 <- function(rho,tau0,tau1,y_sd,endog_sd,gamma,beta){
   mat1 = matrix(c(1,rho,rho,y_sd^2),ncol = 2, byrow = T)
   tau_mat = as.matrix(cbind(tau0,tau1))
   endog_mat = diag(length(endog_sd))*endog_sd^2
@@ -130,4 +133,3 @@ make.cov <- function(rho,tau0,tau1,y_sd,endog_sd,gamma,beta){
   
   return(Sig)
 }
-
