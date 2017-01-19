@@ -101,13 +101,72 @@ name.pieces<-function(t){
               ,pi = pis))
 }
 
-make.covTrans <- function(a,num_endog,gamma,beta){
-  if(is.matrix(a)){
-    Sig_err = a
+make.covTrans <- function(a,num_endog,gamma,beta,option = "mat"){
+  #option "parameters": a = list(rho,tau0,tau1,y_sd,endog_sd)
+  #option "mat": a is full matrix
+  #option "vector": a is vector of all elements of matrix
+  
+  if(option == "mat"){
+    if(is.matrix(a)){
+      Sig_err = a
+    }
+    else{
+      cat("Error: You have set option to 'mat', please supply a matrix\n
+          Other options:\n
+          option 'vector': Insert full matrix as a vector\n
+          option 'parameters': Insert only the parameters of interest as list, unimportant off-diagonal elements will be set to 0")
+      return(NA)
+    }
   }
-  else{
-    Sig_err = matrix(a, ncol = 2+num_endog, byrow = F)
-  }
+  
+  else if(option=="vector"){
+    tryCatch({
+      Sig_err = matrix(a, ncol = 2+num_endog, byrow = F)
+    }, error = function(e){
+      cat("Error: You have not supplied the correct length vector \n
+          Vector should be (2+number of endogenous variables)^2 long\n
+          Other options:\n
+          option 'mat': Insert full matrix\n
+          option 'parameters': Insert only the parameters of interest as list, unimportant off-diagonal elements will be set to 0")
+      return(NA)
+    }, warning = function(w){
+      cat("Error: You have not supplied the correct length vector \n
+          Vector should be (2+number of endogenous variables)^2 long\n
+          Other options:\n
+          option 'mat': Insert full matrix\n
+          option 'parameters': Insert only the parameters of interest as list, unimportant off-diagonal elements will be set to 0")
+      return(NA)
+    }
+      )
+    
+    }
+  
+  else if(option == "parameters"){
+    tryCatch({
+      mat1 = matrix(c(1,a$rho,a$rho,a$y_sd^2),ncol = 2, byrow = T)
+      tau_mat = as.matrix(cbind(a$tau0,a$tau1))
+      endog_mat = diag(length(a$endog_sd))*a$endog_sd^2
+      Sig_err = rbind(cbind(mat1,t(tau_mat)),cbind(tau_mat,endog_mat))
+    }, error = function(e){
+      print(e)
+      cat("Error: You have not supplied the correct length vector \n
+          Vector should include rho, y_sd, tau0, tau1, endog_sd\n
+          Other options:\n
+          option 'mat': Insert full matrix\n
+          option 'vector': Insert full matrix as a vector\n")
+      return(NA)
+    }, warning = function(w){
+      print(w)
+      cat("Error: You have not supplied the correct length vector \n
+          Vector should include rho, y_sd, tau0, tau1, endog_sd\n
+          Other options:\n
+          option 'mat': Insert full matrix\n
+          option 'vector': Insert full matrix as a vector\n")
+      return(NA)
+    }
+      )
+    }
+  
   
   A = diag(2+num_endog)
   A[1,3:(2+num_endog)] <- tail(gamma,num_endog)
@@ -117,8 +176,8 @@ make.covTrans <- function(a,num_endog,gamma,beta){
   
   if(min(eigen(Sig)$values)<=0){
     print("bad start sigma values")
-    stop
+    return(NA)
   }
   
   return(Sig)
-}
+  }
