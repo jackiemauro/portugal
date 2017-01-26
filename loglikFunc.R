@@ -1,40 +1,27 @@
-# do rho, tau's, sig_v, sig_u come from Sig_err or Sig?
-# i think they come from Sig_err, doing that for now, but check 
-# you can't put things into this that aren't going to be optimized: name pieces fn has to change
 
 loglik_lgiv<-function(t){
-  
   ############ preliminaries ##############
   # get everyone named
   pieces = name.pieces(t)
   
-  # de-cholesky-ify if you're supposed to
-  if(myChol == T){
-    cov_vals = c(1,pieces$cov_start)
-    empty = diag(2+num_endog)
-    empty[upper.tri(empty,diag = T)]<-cov_vals
-    Sig_err = t(empty)%*%empty
-    Sig_err = Sig_err/Sig_err[1,1]
-  }
-  else{
-    print("Warning: no cholesky decomposition makes maximization less stable")
-    cov_vals = c(1,pieces$cov_start)
-    empty = diag(2+num_endog)
-    empty[upper.tri(empty,diag = T)]<-cov_vals
-    tempty = t(empty)
-    tempty[upper.tri(tempty,diag = T)]<-cov_vals
-    Sig_err = tempty
-  }
+  # reconstitute covariance matrix de-cholesky-ify if you're supposed to
+  Sig_err = reconstitute.cov(vals=pieces$cov_start
+                             ,num=num_endog
+                             ,chol=myChol)
   
   # transform covariance matrix with betas and gammas
   Sig = make.covTrans(Sig_err, num_endog, pieces$gamma, pieces$beta)
+  if(all(is.na(Sig))){
+    print("Bad Sig, skipping")
+    return(-Inf)
+  }
   
   ################ get means ######################
   # get log of outcome and its censored values
   logy1 = log(outcome)
   censored = outcome<=0
   
-  # get unconditional means of x2's
+  # get unconditional means of x2'sm
   n = length(pieces$pi)
   mu_x2 = matrix(c(rep(NA,n*length(outcome))),ncol = n)
   for(i in 1:n){
@@ -51,6 +38,7 @@ loglik_lgiv<-function(t){
   sig2_x2 = as.matrix(Sig[(k+1-j):k,(k+1-j):k])
   
   #Parameters for y0star given x2
+  if(cant.solve(sig2_x2)){return(-Inf)}
   mu_y0_x2 = mu_y0 + t(Sig[1,(k+1-j):k]%*%solve(sig2_x2)%*%t(endog_mat-mu_x2))
   sig2_y0_x2 = Sig[1,1] - Sig[1,(k+1-j):k]%*%solve(sig2_x2)%*%Sig[(k+1-j):k,1]
   
@@ -59,6 +47,7 @@ loglik_lgiv<-function(t){
   sig2_y1_x2 = Sig[2,2] - Sig[2,(k+1-j):k]%*%solve(sig2_x2)%*%Sig[(k+1-j):k,2]
   
   #Parameters for y0star given y1star and x2
+  if(cant.solve(Sig[2:k,2:k])){return(-Inf)}
   mu_y0_y1x2 = mu_y0 + t(Sig[1,2:k,drop=FALSE]%*%solve(Sig[2:k,2:k])%*%t(cbind(logy1-mu_y1,endog_mat-mu_x2)))
   sig2_y0_y1x2 = Sig[1,1] - Sig[1,2:k,drop=FALSE]%*%solve(Sig[2:k,2:k])%*%Sig[2:k,1,drop=FALSE]
   
@@ -71,8 +60,11 @@ loglik_lgiv<-function(t){
   #When y1=0:
   ll0 = pnorm(0,mean=mu_y0_x2,sd=sqrt(sig2_y0_x2),log.p = TRUE) + x2part
   
+  
   #When y1>0:
-  ll1 = pnorm(0,mean=mu_y0_y1x2, sd=sqrt(sig2_y0_y1x2),log.p=TRUE, lower.tail = FALSE) +
+  if(sig2_y0_y1x2<0){return(-Inf)}
+  
+  ll1 = pnorm(0,mean=mu_y0_y1x2, sd=sig2_y0_y1x2,log.p=TRUE, lower.tail = FALSE) +
     dnorm(logy1, mean=mu_y1_x2, sd=sqrt(sig2_y1_x2),log = TRUE) + 
     x2part
   
@@ -80,6 +72,7 @@ loglik_lgiv<-function(t){
   ll = ifelse(censored,ll0,ll1)
   
   #Return the negative log-likelihood
+  print(-sum(ll, na.rm = T))
   -sum(ll, na.rm = T)
 }
 
@@ -101,83 +94,3 @@ name.pieces<-function(t){
               ,pi = pis))
 }
 
-make.covTrans <- function(a,num_endog,gamma,beta,option = "mat"){
-  #option "parameters": a = list(rho,tau0,tau1,y_sd,endog_sd)
-  #option "mat": a is full matrix
-  #option "vector": a is vector of all elements of matrix
-  
-  if(option == "mat"){
-    if(is.matrix(a)){
-      Sig_err = a
-    }
-    else{
-      cat("Error: You have set option to 'mat', please supply a matrix\n
-          Other options:\n
-          option 'vector': Insert full matrix as a vector\n
-          option 'parameters': Insert only the parameters of interest as list, unimportant off-diagonal elements will be set to 0")
-      return(NA)
-    }
-  }
-  
-  else if(option=="vector"){
-    tryCatch({
-      Sig_err = matrix(a, ncol = 2+num_endog, byrow = F)
-    }, error = function(e){
-      cat("Error: You have not supplied the correct length vector \n
-          Vector should be (2+number of endogenous variables)^2 long\n
-          Other options:\n
-          option 'mat': Insert full matrix\n
-          option 'parameters': Insert only the parameters of interest as list, unimportant off-diagonal elements will be set to 0")
-      return(NA)
-    }, warning = function(w){
-      cat("Error: You have not supplied the correct length vector \n
-          Vector should be (2+number of endogenous variables)^2 long\n
-          Other options:\n
-          option 'mat': Insert full matrix\n
-          option 'parameters': Insert only the parameters of interest as list, unimportant off-diagonal elements will be set to 0")
-      return(NA)
-    }
-      )
-    
-    }
-  
-  else if(option == "parameters"){
-    tryCatch({
-      mat1 = matrix(c(1,a$rho,a$rho,a$y_sd^2),ncol = 2, byrow = T)
-      tau_mat = as.matrix(cbind(a$tau0,a$tau1))
-      endog_mat = diag(length(a$endog_sd))*a$endog_sd^2
-      Sig_err = rbind(cbind(mat1,t(tau_mat)),cbind(tau_mat,endog_mat))
-    }, error = function(e){
-      print(e)
-      cat("Error: You have not supplied the correct length vector \n
-          Vector should include rho, y_sd, tau0, tau1, endog_sd\n
-          Other options:\n
-          option 'mat': Insert full matrix\n
-          option 'vector': Insert full matrix as a vector\n")
-      return(NA)
-    }, warning = function(w){
-      print(w)
-      cat("Error: You have not supplied the correct length vector \n
-          Vector should include rho, y_sd, tau0, tau1, endog_sd\n
-          Other options:\n
-          option 'mat': Insert full matrix\n
-          option 'vector': Insert full matrix as a vector\n")
-      return(NA)
-    }
-      )
-    }
-  
-  
-  A = diag(2+num_endog)
-  A[1,3:(2+num_endog)] <- tail(gamma,num_endog)
-  A[2,3:(2+num_endog)] <- tail(beta,num_endog)
-  
-  Sig = A%*%Sig_err%*%t(A)
-  
-  if(min(eigen(Sig)$values)<=0){
-    print("bad start sigma values")
-    return(NA)
-  }
-  
-  return(Sig)
-  }

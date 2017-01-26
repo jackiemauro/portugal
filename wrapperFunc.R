@@ -4,7 +4,7 @@ hurdle.IV<-function(formula,
                     exog,
                     data,
                     endog_reg = F,
-                    start_val = F,
+                    start_val = list(),
                     options = list(cholesky = T
                                    , maxit = 5000
                                    , trace = 0
@@ -14,13 +14,16 @@ hurdle.IV<-function(formula,
   ###### format your data, grouping variable types #####
   attach(data)
   inst_mat = as.data.frame(matrix(inst,nrow = dim(data)[1], byrow = F))
-  names(inst_mat)<-rename.input(substitute(inst))
+  inst_names = rename.input(substitute(inst))
+  names(inst_mat)<-inst_names
   
   endog_mat = as.data.frame(matrix(endog, nrow = dim(data)[1], byrow = F))
-  names(endog_mat)<-rename.input(substitute(endog))
+  endog_names = rename.input(substitute(endog))
+  names(endog_mat)<- endog_names
   
   exog_mat = as.data.frame(matrix(exog, nrow = dim(data)[1], byrow = F))
-  names(exog_mat)<-rename.input(substitute(exog))
+  exog_names = rename.input(substitute(exog))
+  names(exog_mat)<- exog_names
   
   outcome = eval(parse(text=paste("data$",formula[[2]],sep = "")))
   y_mat = model.matrix(formula)
@@ -39,18 +42,21 @@ hurdle.IV<-function(formula,
     form = as.formula(formula)
     }, error = function(e){
       print("Error: formula must be a formula, eg: y~x1+x2")
+      detach(data)
       return(NA)
     }
     )
   # check the formula includes endogenous variables
   if(dim(y_endog)[2]==0){
     print("Error: endogenous variables must be included in main regression")
+    detach(data)
     return(NA)
   }
   
   # check no more endogenous variables than instruments
   if(length(inst)<length(endog)){
     print("Error: More endogenous variables than instruments")
+    detach(data)
     return(NA)
   }
   
@@ -65,6 +71,7 @@ hurdle.IV<-function(formula,
   else{
     if(length(endog_reg)!=dim(endog_mat)[2]){
       print("Error: Need one regression for each endogenous variable")
+      detach(data)
       return(NA)
     }
   }
@@ -82,7 +89,7 @@ hurdle.IV<-function(formula,
   
   ############# get start values #######
   # if start values aren't specified, get start values
-  if(start_val == F){
+  if(length(start_val) == 0){
     start_val = start.val(formula = update(form,outcome~.)
                           , endog_reg = endog_reg
                           , data = mf)
@@ -91,16 +98,31 @@ hurdle.IV<-function(formula,
   else{
     if(class(start_val) != "list"){
       print("Error: start values must be a list")
+      detach(mf)
       return(NA)
     }
-    if(length(start_val[['beta']]!=length(start_val[['gamma']]))){
+    if(length(start_val[['beta']])!=length(start_val[['gamma']])){
       print("Error: beta and gamma must be equal length vectors")
+      detach(mf)
       return(NA)
     }
     k = dim(endog_mat)[2]
     if(length(start_val$pi)!=k | length(start_val$tau0)!= k | length(start_val$tau1)!=k){
       print("Error: tau0, tau1 and number of pi coordinates must equal number of endogenous variables")
+      detach(mf)
       return(NA)
+    }
+    if(is.null(names(start_val$gammas))){
+      names(start_val$gamma)<-c("Intercept", exog_names, endog_names)
+#       num_gam = length(start_val$gamma)
+#       names_gam = c("Intercept", strsplit(toString(formula[[3]]),", ")[[1]][2:num_gam])
+#       names(start_val$gamma)<-names_gam
+    }
+    if(is.null(names(start_val$beta))){
+      names(start_val$beta)<-c("Intercept", exog_names, endog_names)
+#       num_bet = length(start_val$beta)
+#       names_bet = c("Intercept", strsplit(toString(formula[[3]]),", ")[[1]][2:num_bet])
+#       names(start_val$beta)<-names_bet
     }
   }
   
@@ -116,7 +138,7 @@ hurdle.IV<-function(formula,
   
 
   ########## run optimizer #############
-  # save info about parameter lengths
+  # save info about parameters and model matrices
   pars = list(len_cov = length(which(upper.tri(cov_start, diag = T)))-1
               ,num_endog = dim(endog_mat)[2]
               ,num_betas = dim(y_mat)[2]
@@ -124,7 +146,10 @@ hurdle.IV<-function(formula,
               ,myChol = options$cholesky
               ,ER_mat = ER_mat
               ,y_mat = y_mat
-              ,endog_mat = endog_mat)
+              ,endog_mat = endog_mat
+              ,inst_names = inst_names
+              ,exog_names = exog_names
+              ,endog_names = endog_names)
   attach(pars)
   
   cov_in = cov_start[upper.tri(cov_start, diag = T)][-1]
@@ -136,8 +161,15 @@ hurdle.IV<-function(formula,
               , hessian  = T
               , control = list(maxit = options$maxit,trace = options$trace)
   )
+  name_pars = name.pieces(out$par)
+  name_pars$cov = reconstitute.cov(vals=name_pars$cov_start
+                                   ,num=num_endog
+                                   ,chol=myChol)
+  
   detach(mf)
   detach(pars)
+  
+  return(name_pars)
 }
 
 rename.input <- function(input){
@@ -163,4 +195,116 @@ make.cov<- function(rho,tau0,tau1,y_sd,endog_sd){
     }
 
 
+make.covTrans <- function(a,num_endog,gamma,beta,option = "mat",noname = F){
+  #option "parameters": a = list(rho,tau0,tau1,y_sd,endog_sd)
+  #option "mat": a is full matrix
+  #option "vector": a is vector of all elements of matrix
+  
+  if(option == "mat"){
+    if(is.matrix(a)){
+      Sig_err = a
+    }
+    else{
+      cat("Error: You have set option to 'mat', please supply a matrix\n
+          Other options:\n
+          option 'vector': Insert full matrix as a vector\n
+          option 'parameters': Insert only the parameters of interest as list, unimportant off-diagonal elements will be set to 0")
+      return(NA)
+    }
+  }
+  
+  else if(option=="vector"){
+    tryCatch({
+      Sig_err = matrix(a, ncol = 2+num_endog, byrow = F)
+    }, error = function(e){
+      cat("Error: You have not supplied the correct length vector \n
+          Vector should be (2+number of endogenous variables)^2 long\n
+          Other options:\n
+          option 'mat': Insert full matrix\n
+          option 'parameters': Insert only the parameters of interest as list, unimportant off-diagonal elements will be set to 0")
+      return(NA)
+    }, warning = function(w){
+      cat("Error: You have not supplied the correct length vector \n
+          Vector should be (2+number of endogenous variables)^2 long\n
+          Other options:\n
+          option 'mat': Insert full matrix\n
+          option 'parameters': Insert only the parameters of interest as list, unimportant off-diagonal elements will be set to 0")
+      return(NA)
+    }
+      )
+    
+    }
+  
+  else if(option == "parameters"){
+    tryCatch({
+      mat1 = matrix(c(1,a$rho,a$rho,a$y_sd^2),ncol = 2, byrow = T)
+      tau_mat = as.matrix(cbind(a$tau0,a$tau1))
+      endog_mat = diag(length(a$endog_sd))*a$endog_sd^2
+      Sig_err = rbind(cbind(mat1,t(tau_mat)),cbind(tau_mat,endog_mat))
+    }, error = function(e){
+      print(e)
+      cat("Error: You have not supplied the correct length vector \n
+          Vector should include rho, y_sd, tau0, tau1, endog_sd\n
+          Other options:\n
+          option 'mat': Insert full matrix\n
+          option 'vector': Insert full matrix as a vector\n")
+      return(NA)
+    }, warning = function(w){
+      print(w)
+      cat("Error: You have not supplied the correct length vector \n
+          Vector should include rho, y_sd, tau0, tau1, endog_sd\n
+          Other options:\n
+          option 'mat': Insert full matrix\n
+          option 'vector': Insert full matrix as a vector\n")
+      return(NA)
+    }
+      )
+    }
+  
+  
+  A = diag(2+num_endog)
+  
+  if(noname == T){
+    gam2 = tail(gamma,num_endog)
+    bet2 = tail(beta,num_endog)
+  }
+  else{
+    gam2 = gamma[names(gamma) %in% endog_names]
+    bet2 = beta[names(beta) %in% endog_names]
+  }
+  
+  A[1,3:(2+num_endog)] <- gam2
+  A[2,3:(2+num_endog)] <- bet2
+  
+  Sig = A%*%Sig_err%*%t(A)
+  
+  if(min(eigen(Sig)$values)<=0){
+    print("bad start sigma values")
+    return(NA)
+  }
+  
+  return(Sig)
+  }
 
+reconstitute.cov<-function(vals,num,chol=myChol){
+  # de-cholesky-ify if you're supposed to
+  if(chol == T){
+    cov_vals = c(1,vals)
+    empty = diag(2+num)
+    empty[upper.tri(empty,diag = T)]<-cov_vals
+    Sig_err = t(empty)%*%empty
+    Sig_err = Sig_err/Sig_err[1,1]
+  }
+  else{
+    print("Warning: no cholesky decomposition makes maximization less stable")
+    cov_vals = c(1,vals)
+    empty = diag(2+num)
+    empty[upper.tri(empty,diag = T)]<-cov_vals
+    tempty = t(empty)
+    tempty[upper.tri(tempty,diag = T)]<-cov_vals
+    Sig_err = tempty
+  }
+  return(Sig_err)
+}
+
+can.solve <- function(m) class(try(solve(m),silent=T))=="matrix"
