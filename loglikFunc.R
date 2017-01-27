@@ -64,7 +64,7 @@ loglik_lgiv<-function(t){
   #When y1>0:
   if(sig2_y0_y1x2<0){return(-Inf)}
   
-  ll1 = pnorm(0,mean=mu_y0_y1x2, sd=sig2_y0_y1x2,log.p=TRUE, lower.tail = FALSE) +
+  ll1 = pnorm(0,mean=mu_y0_y1x2, sd=sqrt(sig2_y0_y1x2),log.p=TRUE, lower.tail = FALSE) +
     dnorm(logy1, mean=mu_y1_x2, sd=sqrt(sig2_y1_x2),log = TRUE) + 
     x2part
   
