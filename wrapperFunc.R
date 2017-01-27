@@ -169,7 +169,7 @@ hurdle.IV<-function(formula,
   detach(mf)
   detach(pars)
   
-  return(name_pars)
+  return(list(out,name_pars))
 }
 
 rename.input <- function(input){
@@ -307,4 +307,4 @@ reconstitute.cov<-function(vals,num,chol=myChol){
   return(Sig_err)
 }
 
-can.solve <- function(m) class(try(solve(m),silent=T))=="matrix"
+cant.solve <- function(m) class(try(solve(m),silent=T))!="matrix"
