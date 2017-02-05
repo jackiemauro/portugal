@@ -5,21 +5,22 @@
 
 
 hurdle.IV.sim <- function(formula = F,
-                          pi = c(1,-1,5),
-                          gamma = c(-.2,.8,.07),
-                          beta = c(.05,.06,3),
+                          pi = c(1,-1,3), #intercept, exog, inst
+                          gamma = c(-.2,.8,.07), #intercept, exog, endog
+                          beta = c(.05,.06,.02), #intercept, exog, endog
                           endog_reg = list(),
                           exog_mean = 1,
                           exog_sd = 1,
                           z_mean = 3,
                           z_sd = 1,
-                          endog_sd = 3,
+                          endog_sd = 5,
                           y_sd = 2,
                           rho = .2,
                           tau0 = .3,
                           tau1 = .1,
                           n = 1000,
-                          silent = F){
+                          silent = F,
+                          type = "lognormal"){
   
   #checks
   n_z = length(z_mean)
@@ -48,7 +49,9 @@ hurdle.IV.sim <- function(formula = F,
   cov = make.covTrans(list(rho = rho, y_sd = y_sd,endog_sd = endog_sd,
                            tau0 = tau0,tau1 = tau1)
                       , num_endog = length(endog_sd)
-                      , gamma = gamma, beta = beta,option = "parameters")
+                      , gamma = gamma, beta = beta
+                      , option = "parameters"
+                      , noname = T)
   errors = mvrnorm(n,rep(0,dim(cov)[1]),cov)
   
   # make endogenous variables
@@ -71,14 +74,23 @@ hurdle.IV.sim <- function(formula = F,
   else{
     frame = as.matrix(cbind(1,x1,endog))
     y0 = as.numeric(frame%*%gamma + errors[,1] > 0)
-    lny = frame%*%beta + errors[,2]
-    y = exp(lny)*y0
+    yStar = frame%*%beta + errors[,2]
+    if(type == "lognormal"){
+      y = exp(yStar)*y0
+    }
+    else if(type == "cragg"){
+      # should this have as sd y_sd or sd(errors[,2])?
+      require(truncnorm)
+      y1t = rtruncnorm(n,a=0,mean = frame%*%beta, sd = y_sd)
+      y = y1t*y0
+    }
+    
   }
-  out = data.frame(y,lny,y0,endog,df)
+  out = data.frame(y,y0,endog,df)
   
   if(silent == F){
     par(mfrow = c(1,2))
-    hist(out$lny, main = "log(y)",xlab = "")
+    hist(log(out$y), main = "log(y)",xlab = "")
     hist(out$y, main = "y", xlab = "")
     par(mfrow = c(1,1))
     print(paste(mean(out$y0)*100," percent uncensored"))
