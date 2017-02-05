@@ -2,6 +2,7 @@ source("wrapperFunc.R")
 source("hurdleIVsim.R")
 source("startFn.R")
 source("loglikFunc.R")
+source("loglikFunc_cragg.R")
 
 dat = hurdle.IV.sim(formula = F,
                     pi = c(0,0,0),
@@ -115,6 +116,22 @@ check = hurdle.IV(formula = y ~ endog + exog1 + exog2
           ,endog_reg = list()
           ,start_val = list())
 
+# opposite betas and gammas
+dat = hurdle.IV.sim(formula = F,
+                    pi = c(1,-1,.4,5),
+                    gamma = c(1,1,1,-.07),
+                    beta = c(1,-1,-1,3),
+                    exog_mean = c(1,1),
+                    exog_sd = c(4,.6))
+
+check = hurdle.IV(formula = y ~ endog + exog1 + exog2
+                  ,inst = inst1
+                  ,endog = endog
+                  ,exog = c(exog1,exog2)
+                  ,data = dat
+                  ,endog_reg = list()
+                  ,start_val = list())
+
 # if you leave out endogenous regressor
 check = hurdle.IV(formula = y ~  exog1 + exog2
                   ,inst = inst1
@@ -170,3 +187,13 @@ hurdle.IV(formula = y ~ endog + exog1 + dummy
           ,endog_reg = list(endog~exog1 + inst1+inst2, exog1~inst2)
           ,start_val = F)
 
+# cragg
+dat = hurdle.IV.sim(type = "cragg")
+hurdle.IV(formula = y~ exog1 +endog
+          ,inst = inst1
+          ,endog = endog
+          ,exog = exog1
+          ,data = dat
+          ,endog_reg = list()
+          ,start_val = list()
+          ,type = "cragg")

@@ -5,6 +5,7 @@ hurdle.IV<-function(formula,
                     data,
                     endog_reg = F,
                     start_val = list(),
+                    type = "lognormal",
                     options = list(cholesky = T
                                    , maxit = 5000
                                    , trace = 0
@@ -155,8 +156,15 @@ hurdle.IV<-function(formula,
   cov_in = cov_start[upper.tri(cov_start, diag = T)][-1]
   start_vec = c(cov_in, start_val$beta, start_val$gamma, unlist(start_val$pi))
   
+  if(type == "lognormal"){
+    ll = loglik_lgiv
+  }
+  else if(type == "cragg"){
+    ll = loglik_craggiv
+  }
+
   out = optim(start_vec
-              , loglik_lgiv
+              , ll
               , method= options$method
               , hessian  = T
               , control = list(maxit = options$maxit,trace = options$trace)
@@ -169,6 +177,9 @@ hurdle.IV<-function(formula,
   detach(mf)
   detach(pars)
   
+  if(min(eigen(out$hessian)$value)*max(eigen(out$hessian)$value)<0){
+    print("bad hessian")
+  }
   return(list(out,name_pars))
 }
 
@@ -308,3 +319,21 @@ reconstitute.cov<-function(vals,num,chol=myChol){
 }
 
 cant.solve <- function(m) class(try(solve(m),silent=T))!="matrix"
+
+name.pieces<-function(t){  
+  cov_start = t[1:len_cov]
+  beta = t[(len_cov+1):(len_cov+num_betas)]
+  gamma = t[(len_cov+num_betas+1):(len_cov+2*num_betas)]
+  pis = list()
+  k = len_cov+2*num_betas+1
+  for(i in 1:num_endog){
+    pis[[i]] = t[k:(k+num_pis[[i]]-1)]
+    k = k+num_pis[[i]]
+  }
+  #pis = t[(len_cov+2*num_betas+1):length(t)]
+  
+  return(list(cov_start = cov_start
+              ,beta = beta
+              ,gamma = gamma
+              ,pi = pis))
+}
