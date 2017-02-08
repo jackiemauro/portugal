@@ -4,6 +4,7 @@
 rm(list = ls())
 source("wrapperFunc.R")
 source("hurdleIVsim.R")
+source("hurdleIVsim_rawErrors.R")
 source("startFn.R")
 source("loglikFunc.R")
 require('AER')
@@ -13,7 +14,7 @@ beta2 = .02; gamma2 = -.07
 beta = list(); gamma = list(); pi = list()
 beta_ll = list(); gamma_ll = list(); pi_ll = list(); cov_ll = list()
 for(i in 1:100){
-  dat = hurdle.IV.sim(pi = c(1,-1,3), #intercept, exog, inst
+  dat = hurdle.IV.sim_rawError(pi = c(1,-1,3), #intercept, exog, inst
                       gamma = c(.2,.4,gamma2), #intercept, exog, endog
                       beta = c(.05,-.1,beta2)  #intercept, exog, endog
                       )
