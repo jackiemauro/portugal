@@ -49,27 +49,22 @@ gammas_ll = matrix(unlist(gamma_ll), ncol = 3, byrow = T)
 pis_ll = matrix(unlist(pi_ll), ncol = 3, byrow = T)
 
 par(mfrow = c(1,2))
-hist(betas[,3], main = "Sep")
+hist(betas[,3], main = "Sep beta", xlab = paste("SD: ",round(sd(betas[,3]),3)))
 abline(v = mean((betas[,3])), col = "green")
 abline(v = beta2, col = "red")
 
-hist(betas_ll[,2], main = "FIML")
+hist(betas_ll[,2], main = "FIML beta", xlab = paste("SD: ",round(sd(betas_ll[,2]),3)))
 abline(v = mean((betas_ll[,2])), col = "green")
 abline(v = beta2, col = "red")
 par(mfrow = c(1,1))
 
-sd(betas_ll[,2])
-sd(betas[,3])
 
 par(mfrow = c(1,2))
-hist(gammas[,3], main = "Sep")
+hist(gammas[,3], main = "Sep gamma", xlab = paste("SD: ",round(sd(gammas[,3]),3)))
 abline(v = mean((gammas[,3])), col = "green")
 abline(v = gamma2, col = "red")
 
-hist(gammas_ll[,2], main = "FIML")
+hist(gammas_ll[,2], main = "FIML gamma", xlab = paste("SD: ",round(sd(gammas_ll[,2]),3)))
 abline(v = mean((gammas_ll[,2])), col = "green")
 abline(v = gamma2, col = "red")
 par(mfrow = c(1,1))
-
-sd(gammas_ll[,2])
-sd(gammas[,3])
