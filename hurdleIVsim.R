@@ -1,26 +1,24 @@
-
-
-# still needs to be able to incorporate more than one endogenous variable
-# still needs to be able to specify which exogenous variables to include when
-
+# this is just for testing the changing gamma tobit thing
+# in this one, i don't transform the covariance fn first
+# it shouldn't be right but... we'll see
 
 hurdle.IV.sim <- function(formula = F,
-                          pi = c(1,-1,3), #intercept, exog, inst
-                          gamma = c(-.2,.8,.07), #intercept, exog, endog
-                          beta = c(.05,.06,.02), #intercept, exog, endog
-                          endog_reg = list(),
-                          exog_mean = 1,
-                          exog_sd = 1,
-                          z_mean = 3,
-                          z_sd = 1,
-                          endog_sd = 5,
-                          y_sd = 2,
-                          rho = .2,
-                          tau0 = .3,
-                          tau1 = .1,
-                          n = 1000,
-                          silent = F,
-                          type = "lognormal"){
+                                   pi = c(1,-1,3), #intercept, exog, inst
+                                   gamma = c(-.2,.8,.07), #intercept, exog, endog
+                                   beta = c(.05,.06,.02), #intercept, exog, endog
+                                   endog_reg = list(),
+                                   exog_mean = 1,
+                                   exog_sd = 1,
+                                   z_mean = 3,
+                                   z_sd = 1,
+                                   endog_sd = 5,
+                                   y_sd = 2,
+                                   rho = .2,
+                                   tau0 = .3,
+                                   tau1 = .1,
+                                   n = 10000,
+                                   silent = F,
+                                   type = "lognormal"){
   
   #checks
   n_z = length(z_mean)
@@ -38,6 +36,16 @@ hurdle.IV.sim <- function(formula = F,
     print("Error: length of tau vectors must equal number of endogenous variables")
     stop
   }
+  if(length(endog_reg)!=0){
+    # need to allow you to exclude some exogenous variables
+    print("This functionality not developed yet, set endog_reg = list()")
+    stop
+  }
+  if(formula!=F){
+    # need to allow you to exclude some exogenous variables
+    print("This functionality not developed yet, set formula = F")
+    stop
+  }
   
   # make instruments and exogenous variables as random normals
   z = make.df(mean = z_mean, sd = z_sd, n = n, pref = "inst")
@@ -46,46 +54,30 @@ hurdle.IV.sim <- function(formula = F,
   
   # make covariance matrix
   require(MASS)
-  cov = make.covTrans(list(rho = rho, y_sd = y_sd,endog_sd = endog_sd,
-                           tau0 = tau0,tau1 = tau1)
-                      , num_endog = length(endog_sd)
-                      , gamma = gamma, beta = beta
-                      , option = "parameters"
-                      , noname = T)
-  errors = mvrnorm(n,rep(0,dim(cov)[1]),cov)
+  cov = make.cov(rho=rho
+                 ,tau0=tau0
+                 ,tau1=tau1
+                 ,y_sd=y_sd
+                 ,endog_sd=endog_sd)
   
-  # make endogenous variables
-  if(length(endog_reg)!=0){
-    # need to allow you to exclude some exogenous variables
-    print("This functionality not developed yet, set endog_reg = list()")
-    stop
+  if(type == "cragg"){
+    temp = cragg_errs(cov=cov,df=df,pi=pi,x1=x1,gamma=gamma,beta=beta,n=n,z=z)
+    endog = temp['endog'][[1]]
+    errors = temp['errors'][[1]]
+    y0 = temp['y0'][[1]]
+    yStar = temp['yStar'][[1]]
+    y = y0*yStar
   }
   else{
+    errors = mvrnorm(n,rep(0,dim(cov)[1]),cov)
     frame = as.matrix(cbind(1,df))
     endog = frame%*%pi + errors[,3]
-  }
-  
-  # make y
-  if(formula!=F){
-    # need to allow you to exclude some exogenous variables
-    print("This functionality not developed yet, set formula = F")
-    stop
-  }
-  else{
     frame = as.matrix(cbind(1,x1,endog))
     y0 = as.numeric(frame%*%gamma + errors[,1] > 0)
     yStar = frame%*%beta + errors[,2]
-    if(type == "lognormal"){
-      y = exp(yStar)*y0
-    }
-    else if(type == "cragg"){
-      # should this have as sd y_sd or sd(errors[,2])?
-      require(truncnorm)
-      y1t = rtruncnorm(n,a=0,mean = frame%*%beta, sd = y_sd)
-      y = y1t*y0
-    }
-    
+    y = exp(yStar)*y0
   }
+  
   out = data.frame(y,y0,endog,df)
   
   if(silent == F){
