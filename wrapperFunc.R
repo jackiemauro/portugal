@@ -93,7 +93,8 @@ hurdle.IV<-function(formula,
   if(length(start_val) == 0){
     start_val = start.val(formula = update(form,outcome~.)
                           , endog_reg = endog_reg
-                          , data = mf)
+                          , data = mf
+                          , type = type)
   }
   
   else{
