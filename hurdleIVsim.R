@@ -61,7 +61,9 @@ hurdle.IV.sim <- function(formula = F,
                  ,endog_sd=endog_sd)
   
   if(type == "cragg"){
-    temp = cragg_errs(cov=cov,df=df,pi=pi,x1=x1,gamma=gamma,beta=beta,n=n,z=z)
+    source("sim_cragg_errors.R")
+    temp = cragg_errs2(cov=cov,df=df,pi=pi,x1=x1,gamma=gamma,beta=beta,n=n,z=z)
+    #temp = cragg_errs(cov=cov,df=df,pi=pi,x1=x1,gamma=gamma,beta=beta,n=n,z=z)
     endog = temp['endog'][[1]]
     errors = temp['errors'][[1]]
     y0 = temp['y0'][[1]]
